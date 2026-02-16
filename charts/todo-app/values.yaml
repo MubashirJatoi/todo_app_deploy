@@ -1,0 +1,384 @@
+# Default values for todo-app
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-frontend
+    pullPolicy: "IfNotPresent"
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+  service:
+    type: "NodePort"
+    port: 3000
+    targetPort: 3000
+    nodePort: ""
+    clusterIP: ""
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    annotations: {}
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+  resources:
+    # Recommended resource limits for frontend Next.js application
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 2000
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startupProbe:
+    enabled: false
+    spec:
+      httpGet:
+        path: /
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+  env: {}
+  envExtra: {}
+  config: {}
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-backend
+    pullPolicy: "IfNotPresent"
+    tag: ""
+  imagePullSecrets: []
+  nameOverride: ""
+  fullnameOverride: ""
+  service:
+    type: "ClusterIP"
+    port: 7860
+    targetPort: 7860
+    nodePort: ""
+    clusterIP: ""
+    loadBalancerIP: ""
+    loadBalancerSourceRanges: []
+    annotations: {}
+  resources:
+    # Recommended resource limits for FastAPI backend application
+    # Dapr overhead is accounted for in the default values when enabled
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 100
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    fsGroup: 2000
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+  startupProbe:
+    enabled: false
+    spec:
+      httpGet:
+        path: /health
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 30
+  envExtra: {}
+  config: {}
+
+# Database configuration
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15"
+    pullPolicy: "IfNotPresent"
+  service:
+    port: 5432
+  resources:
+    # Recommended resource limits for PostgreSQL database
+    # Dapr overhead is accounted for in the default values when enabled
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  volume:
+    enabled: true
+    size: "1Gi"
+    storageClass: ""
+  url: "postgresql://user:password@localhost:5432/todo_db"
+  password: "password"
+
+# Authentication configuration
+auth:
+  secret: "UwL72Tk7hx7p6x8geT7CeeB6NmjnEzck"
+
+# AI configuration
+ai:
+  apiKey: "SjQEmGMmZM5iuedMzLGT7lZIUKp2TCTI2ujatWHy"
+
+# Dapr configuration
+dapr:
+  # Enable Dapr sidecar injection
+  enabled: false
+  # HTTP port for Dapr sidecar
+  httpPort: "3500"
+  # gRPC port for Dapr sidecar
+  grpcPort: "50001"
+  # Application protocol (http, grpc)
+  appProtocol: "http"
+  # Log level for Dapr sidecar (debug, info, warn, error)
+  logLevel: "info"
+  # Enable metrics collection
+  enableMetrics: "true"
+  # Metrics port for Dapr sidecar
+  metricsPort: "9090"
+  # Enable profiling
+  enableProfiling: "false"
+  # Dapr configuration name
+  config: ""
+  # Maximum concurrency for the application
+  appMaxConcurrency: "-1"
+  # Enable SSL for the application
+  appSsl: "false"
+  
+  # Dapr components configuration
+  stateStore:
+    enabled: true
+    type: state.redis
+    redisHost: "redis-master.default.svc.cluster.local:6379"
+    secretName: "redis-secret"
+    secretKey: "password"
+    
+  pubsub:
+    enabled: true
+    type: pubsub.redis
+    redisHost: "redis-master.default.svc.cluster.local:6379"
+    secretName: "redis-secret"
+    secretKey: "password"
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: "redis-password-here"
+  master:
+    persistence:
+      enabled: false
+  metrics:
+    enabled: false
+
+# Istio configuration
+istio:
+  # Enable Istio sidecar injection
+  enabled: false
+  # Control plane revision
+  controlPlane: ""
+  # Injection policy
+  injectionPolicy: ""
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metricsPath: "/metrics"
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "10s"
+    path: "/metrics"
+    additionalLabels: {}
+
+# Namespace configuration
+namespace:
+  # If provided, the namespace will be created and used for all resources
+  create: false
+  name: ""
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# Application configuration (non-sensitive)
+app:
+  environment: "production"
+  logLevel: "info"
+  debugMode: false
+
+  frontend:
+    apiBaseUrl: ""
+    appName: "Todo App"
+    theme: "light"
+
+  backend:
+    host: "0.0.0.0"
+    port: 7860
+    databasePoolSize: 10
+    databaseTimeout: 30
+
+  features:
+    enableAnalytics: false
+    enableTelemetry: false
+    enableCaching: true
+
+  timeouts:
+    requestTimeout: 30
+    connectionTimeout: 10
+
+  cache:
+    ttl: 3600
+    prefix: "todo_app"
+
+  ratelimit:
+    default: 100
+    window: 3600
+
+  additionalConfigs: {}
+
+# Global configurations
+global:
+  imagePullSecrets: []
+  hostAliases: []
+  tolerations: []
+  affinity: {}
+  nodeSelector: {}
+
+# Validations configuration
+validations:
+  secrets:
+    enabled: true
+  image:
+    repository: bitnami/kubectl
+    pullPolicy: IfNotPresent
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  metricsPath: "/metrics"
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "10s"
+    path: "/metrics"
+    additionalLabels: {}
+
+# Minikube-specific configurations
+minikube:
+  # Enable minikube-specific configuration
+  enabled: false
+  # Node selector to ensure pods run on minikube nodes
+  nodeSelector: {}
+  # Tolerations for minikube environment
+  tolerations: []
+  # Affinity rules for minikube
+  affinity: {}
+  # Resource limits adjusted for minikube's limited resources
+  resourceLimits:
+    frontend:
+      cpu: 300m
+      memory: 256Mi
+    backend:
+      cpu: 500m
+      memory: 512Mi
+    database:
+      cpu: 300m
+      memory: 256Mi
+  # Smaller database volume for minikube
+  databaseVolume:
+    size: 512Mi
+  # Image pull policy for local development
+  imagePullPolicy: "IfNotPresent"
+  # Service type for easier access in minikube
+  serviceType: "NodePort"
+  # Storage class for minikube
+  storageClass: "standard"
+  # Ingress configuration for minikube
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}

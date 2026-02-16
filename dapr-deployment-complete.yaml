@@ -1,0 +1,234 @@
+---
+# Redis Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis-secret
+type: Opaque
+data:
+  password: cmVkaXMtcGFzc3dvcmQ=  # Base64 encoded "redis-password"
+
+---
+# Redis StatefulSet (single container - 1/1)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: todo-app-redis-master
+spec:
+  serviceName: todo-app-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: master
+    spec:
+      containers:
+      - name: redis
+        image: redis:6.2-alpine
+        ports:
+        - containerPort: 6379
+        command:
+        - redis-server
+        - /etc/redis/redis.conf
+        volumeMounts:
+        - name: redis-config
+          mountPath: /etc/redis
+        - name: redis-data
+          mountPath: /data
+      volumes:
+      - name: redis-config
+        configMap:
+          name: redis-config
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+
+---
+# Redis ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+data:
+  redis.conf: |
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    save 900 1
+    save 300 10
+    save 60 10000
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-app-redis
+spec:
+  selector:
+    app: redis
+    role: master
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+
+---
+# Dapr State Store Component
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: todo-app-redis:6379
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-secret
+      key: password
+  - name: actorStateStore
+    value: "true"
+
+---
+# Dapr Pub/Sub Component
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: todo-app-redis:6379
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-secret
+      key: password
+
+---
+# Backend Deployment with Dapr Sidecar (2/2)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-with-dapr
+  labels:
+    app: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "backend"
+        dapr.io/app-port: "8000"
+        dapr.io/components: "statestore,pubsub"
+    spec:
+      containers:
+      # Main backend container
+      - name: backend
+        image: todo-backend:latest
+        ports:
+        - containerPort: 8000
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://postgres:postgres@db:5432/todo_db"
+        - name: BETTER_AUTH_SECRET
+          value: "default_secret_key"
+        - name: HOST_URL
+          value: "http://localhost:8000"
+        - name: PORT
+          value: "8000"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+
+---
+# Frontend Deployment with Dapr Sidecar (2/2)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-with-dapr
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "frontend"
+        dapr.io/app-port: "3000"
+    spec:
+      containers:
+      # Main frontend container
+      - name: frontend
+        image: todo-frontend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_BASE_URL
+          value: "http://localhost:8000"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+
+---
+# Service for Backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  selector:
+    app: backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+
+---
+# Service for Frontend
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: LoadBalancer

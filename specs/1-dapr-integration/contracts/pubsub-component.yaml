@@ -1,0 +1,65 @@
+# Dapr Pub/Sub Component - Redis Streams
+# This is a CONTRACT template showing the exact YAML structure required
+# Actual deployment file will be in helm/todo-chart/templates/dapr-components/pubsub.yaml
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: default  # Will be: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: todo-app
+    app.kubernetes.io/instance: todo-app
+    app.kubernetes.io/component: dapr-pubsub
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  # Redis Connection
+  - name: redisHost
+    value: "redis-master.default.svc.cluster.local:6379"  # Will be: {{ .Values.dapr.pubsub.redisHost }}
+
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-secret  # Will be: {{ .Values.dapr.pubsub.secretName }}
+      key: password       # Will be: {{ .Values.dapr.pubsub.secretKey }}
+
+  # Consumer Configuration
+  - name: consumerID
+    value: "todo-consumer"  # Will be: "{{ .Release.Name }}-consumer"
+
+  # Connection Settings
+  - name: enableTLS
+    value: "false"
+
+  # Retry and Delivery Settings
+  - name: redeliverInterval
+    value: "30s"
+
+  - name: processingTimeout
+    value: "60s"
+
+  - name: maxRetries
+    value: "3"
+
+  # Dead Letter Queue (optional)
+  # - name: deadLetterTopic
+  #   value: "task-events-dlq"
+
+  # Scoping: Only backend-app can publish/subscribe
+  scopes:
+  - backend-app  # Will be: {{ .Values.backend.dapr.appId }}
+
+---
+# USAGE EXAMPLE:
+# Publish event:
+#   POST http://localhost:3500/v1.0/publish/pubsub/task.created
+#   Body: {"specversion": "1.0", "type": "task.created", "source": "/backend", "data": {...}}
+#
+# Subscribe:
+#   Expose GET /dapr/subscribe endpoint returning:
+#   [{"pubsubname": "pubsub", "topic": "task.created", "route": "/events/task-created"}]
+#
+# Handle event:
+#   Implement POST /events/task-created endpoint
+#   Return {"status": "SUCCESS"} or {"status": "RETRY"}

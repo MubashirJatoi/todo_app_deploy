@@ -1,0 +1,51 @@
+# API Contract for Todo Application
+
+## Backend Endpoints
+
+### Authentication
+```
+POST /api/auth/login
+- Request: {email: string, password: string}
+- Response: {token: string, user: object}
+
+POST /api/auth/register
+- Request: {email: string, password: string, name: string}
+- Response: {token: string, user: object}
+
+POST /api/auth/logout
+- Headers: Authorization: Bearer {token}
+- Response: {success: boolean}
+```
+
+### Todo Operations
+```
+GET /api/todos
+- Headers: Authorization: Bearer {token}
+- Response: {todos: array}
+
+POST /api/todos
+- Headers: Authorization: Bearer {token}
+- Request: {title: string, description?: string, completed?: boolean}
+- Response: {todo: object}
+
+PUT /api/todos/{id}
+- Headers: Authorization: Bearer {token}
+- Request: {title?: string, description?: string, completed?: boolean}
+- Response: {todo: object}
+
+DELETE /api/todos/{id}
+- Headers: Authorization: Bearer {token}
+- Response: {success: boolean}
+```
+
+## Frontend Environment Variables
+```
+NEXT_PUBLIC_API_BASE_URL: string  # Backend API URL
+NODE_ENV: string                # Environment (development/production)
+```
+
+## Communication Patterns
+- Frontend accesses backend via HTTP requests
+- Authentication tokens passed in Authorization header
+- JSON request/response bodies
+- Standard HTTP status codes

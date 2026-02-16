@@ -1,0 +1,13 @@
+{{- if .Values.backend.enabled }}
+{{- if .Values.backend.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "todo-app.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "todo-app.backend-labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.backend.config | nindent 2 }}
+{{- end }}
+{{- end }}

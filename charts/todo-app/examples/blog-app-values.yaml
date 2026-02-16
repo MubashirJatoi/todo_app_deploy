@@ -1,0 +1,118 @@
+# Example configuration for a Blog Application
+# This demonstrates how to reuse the generic chart for a different application
+
+# Application name override (optional)
+nameOverride: "blog-app"
+fullnameOverride: "blog-application"
+
+# Frontend configuration for blog application
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: my-blog-frontend
+    pullPolicy: Always
+    tag: "latest"
+  service:
+    type: LoadBalancer
+    port: 80
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  env:
+    NEXT_PUBLIC_API_URL: "http://blog-app-backend:8080"
+    NEXT_PUBLIC_SITE_TITLE: "My Blog Site"
+
+# Backend configuration for blog application
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: my-blog-backend
+    pullPolicy: Always
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# Database configuration
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15"
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  volume:
+    enabled: true
+    size: 2Gi
+  url: "postgresql://bloguser:blogpass@blog-app-database:5432/blogdb"
+  password: "secureBlogPassword123"
+
+# Authentication configuration
+auth:
+  secret: "blogSecretKey1234567890abcdef"
+
+# Application-specific configuration
+app:
+  environment: "production"
+  logLevel: "info"
+  frontend:
+    apiBaseUrl: "http://blog-app-backend:8080"
+    appName: "Blog Application"
+    theme: "modern"
+  backend:
+    host: "0.0.0.0"
+    port: 8080
+  features:
+    enableAnalytics: true
+    enableComments: true
+    enableSearch: true
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: blog.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: blog-tls
+      hosts:
+        - blog.example.com
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+
+# Namespace configuration
+namespace:
+  create: true
+  name: "blog-app-namespace"
+
+# Minikube-specific overrides (can be commented out for production)
+minikube:
+  enabled: false
+  imagePullPolicy: "Always"
+  serviceType: "NodePort"

@@ -1,0 +1,13 @@
+{{- if .Values.frontend.enabled | default true }}
+{{- if .Values.frontend.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "todo-app.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "todo-app.frontend-labels" . | nindent 4 }}
+data:
+  {{- toYaml .Values.frontend.config | nindent 2 }}
+{{- end }}
+{{- end }}

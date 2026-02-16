@@ -1,0 +1,158 @@
+# Example configuration for an E-Commerce Application
+# This demonstrates how to reuse the generic chart for an e-commerce application
+
+# Application name override (optional)
+nameOverride: "ecommerce-app"
+fullnameOverride: "ecommerce-store"
+
+# Frontend configuration for e-commerce application
+frontend:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ecommerce-frontend
+    pullPolicy: Always
+    tag: "v1.2.0"
+  service:
+    type: LoadBalancer
+    port: 80
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  env:
+    NEXT_PUBLIC_API_URL: "http://ecommerce-app-backend:9000"
+    NEXT_PUBLIC_STORE_NAME: "My Online Store"
+    NEXT_PUBLIC_CURRENCY: "USD"
+
+# Backend configuration for e-commerce application
+backend:
+  enabled: true
+  replicaCount: 3
+  image:
+    repository: ecommerce-backend
+    pullPolicy: Always
+    tag: "v1.2.0"
+  service:
+    type: ClusterIP
+    port: 9000
+  resources:
+    limits:
+      cpu: 800m
+      memory: 1Gi
+    requests:
+      cpu: 300m
+      memory: 512Mi
+
+# Database configuration
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 150m
+      memory: 256Mi
+  volume:
+    enabled: true
+    size: 5Gi
+  url: "postgresql://ecommuser:ecommPass123@ecommerce-app-database:5432/ecommerce"
+  password: "SecureEcommDBPass456!"
+
+# Authentication configuration
+auth:
+  secret: "ecommerceSuperSecretKey7890!@#$%^&*()"
+
+# Payment and commerce-specific configuration
+app:
+  environment: "production"
+  logLevel: "info"
+  frontend:
+    apiBaseUrl: "http://ecommerce-app-backend:9000"
+    appName: "E-Commerce Store"
+    theme: "shop"
+  backend:
+    host: "0.0.0.0"
+    port: 9000
+  features:
+    enableAnalytics: true
+    enablePayments: true
+    enableInventory: true
+    enableReviews: true
+  timeouts:
+    paymentTimeout: 30
+    cartExpiration: 3600
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: mystore.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: store-tls
+      hosts:
+        - mystore.com
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "15s"
+    scrapeTimeout: "5s"
+
+# Security and performance
+frontend:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    readOnlyRootFilesystem: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+backend:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    readOnlyRootFilesystem: true
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 65
+
+# Namespace configuration
+namespace:
+  create: true
+  name: "ecommerce-production"
+
+# Minikube-specific overrides (can be commented out for production)
+minikube:
+  enabled: false
+  resourceLimits:
+    frontend:
+      cpu: 300m
+      memory: 256Mi
+    backend:
+      cpu: 500m
+      memory: 512Mi
+    database:
+      cpu: 300m
+      memory: 256Mi

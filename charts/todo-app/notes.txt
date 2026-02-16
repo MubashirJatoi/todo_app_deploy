@@ -1,0 +1,72 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.minikube.enabled }}
+#############################################################################
+# MINIKUBE-SPECIFIC INSTRUCTIONS
+#############################################################################
+
+The Todo application has been deployed for Minikube with the following configuration:
+- Frontend service type: {{ .Values.frontend.service.type }}
+- Backend service type: {{ .Values.backend.service.type }}
+- Image pull policy: {{ .Values.minikube.imagePullPolicy }}
+- Resource limits optimized for Minikube environment
+
+Access the application:
+
+1. Get the service URLs:
+   Frontend: minikube service {{ include "todo-app.fullname" . }}-frontend --url
+   Backend:  minikube service {{ include "todo-app.fullname" . }}-backend --url
+
+2. Or access via NodePort (recommended for Minikube):
+   kubectl get svc -l app.kubernetes.io/component=frontend
+   kubectl get svc -l app.kubernetes.io/component=backend
+
+3. For direct access in Minikube:
+   minikube tunnel (in a separate terminal)
+   Then access via the ClusterIP addresses shown by: kubectl get svc
+
+{{- else }}
+The Todo application should be accessible at:
+{{- if .Values.frontend.ingress.enabled }}
+{{- range $host := .Values.frontend.ingress.hosts }}
+  http{{ if $.Values.frontend.ingress.tls }}s{{ end }}://{{ $host.host }}{{ range $path := $host.paths }}{{ $path.path }}{{ end }}
+{{- end }}
+{{- else }}
+  Get the application URL by running these commands:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "todo-app.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+{{- end }}
+
+{{- if .Values.monitoring.enabled }}
+#############################################################################
+# MONITORING INFORMATION
+#############################################################################
+
+Monitoring is enabled:
+- Metrics endpoints available on ports 9090 for both frontend and backend
+- ServiceMonitors configured for Prometheus
+- Metrics services: {{ include "todo-app.fullname" . }}-frontend-metrics, {{ include "todo-app.fullname" . }}-backend-metrics
+{{- end }}
+
+{{- if .Values.validations.secrets.enabled }}
+#############################################################################
+# VALIDATION INFORMATION
+#############################################################################
+
+Secret validation is enabled to ensure all required secrets are present before deployment.
+{{- end }}
+
+For troubleshooting, check:
+- Pod status: kubectl get pods -l app.kubernetes.io/part-of={{ include "todo-app.name" . }}
+- Pod logs: kubectl logs -l app.kubernetes.io/part-of={{ include "todo-app.name" . }}
+- Events: kubectl get events --sort-by='.lastTimestamp'

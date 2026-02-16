@@ -1,0 +1,26 @@
+{{- if and .Values.database.enabled .Values.database.volume.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "todo-app.fullname" . }}-postgres-pvc
+  {{- if .Values.namespace.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "todo-app.database-labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-8"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.database.volume.size | default "1Gi" }}
+  {{- if .Values.database.volume.storageClass }}
+  storageClassName: {{ .Values.database.volume.storageClass }}
+  {{- end }}
+{{- end }}

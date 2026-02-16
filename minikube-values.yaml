@@ -1,0 +1,83 @@
+# Custom values file optimized for Minikube deployment
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-frontend
+    pullPolicy: "Never"  # Use local images
+    tag: "latest"
+  resources:
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  service:
+    type: "NodePort"
+    port: 3000
+    targetPort: 3000
+
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-backend
+    pullPolicy: "Never"  # Use local images
+    tag: "latest"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  service:
+    type: "NodePort"
+    port: 8000
+    targetPort: 8000
+
+database:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15"
+  resources:
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  volume:
+    enabled: true
+    size: "512Mi"
+  url: "postgresql://user:password@todo-app-postgres:5432/todo_db"
+  password: "password"
+
+# Minikube-specific optimizations
+minikube:
+  enabled: true
+  resourceLimits:
+    frontend:
+      cpu: 300m
+      memory: 256Mi
+    backend:
+      cpu: 500m
+      memory: 512Mi
+    database:
+      cpu: 300m
+      memory: 256Mi
+  databaseVolume:
+    size: 512Mi
+  serviceType: "NodePort"
+
+# Reduce resource usage for constrained environments
+app:
+  environment: "development"
+  logLevel: "warn"
+  debugMode: false
+
+# Disable monitoring to save resources
+monitoring:
+  enabled: false

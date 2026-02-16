@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "todo-app.fullname" . }}-app-config
+  {{- if .Values.namespace.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "todo-app.standard-labels" . | nindent 4 }}
+  annotations:
+    ai/managed: "true"
+    ai/type: "configuration"
+    ai/description: "Application configuration settings"
+    ai/discoverable: "true"
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  # Application configuration
+  APP_ENV: {{ .Values.app.environment | default "production" | quote }}
+  LOG_LEVEL: {{ .Values.app.logLevel | default "info" | quote }}
+  DEBUG_MODE: {{ .Values.app.debugMode | default "false" | quote }}
+
+  # Frontend configuration
+  NEXT_PUBLIC_API_BASE_URL: {{ .Values.app.frontend.apiBaseUrl | default "" | quote }}
+  NEXT_PUBLIC_APP_NAME: {{ .Values.app.frontend.appName | default "Todo App" | quote }}
+  NEXT_PUBLIC_THEME: {{ .Values.app.frontend.theme | default "light" | quote }}
+
+  # Backend configuration
+  API_HOST: {{ .Values.app.backend.host | default "0.0.0.0" | quote }}
+  API_PORT: {{ .Values.app.backend.port | default "7860" | quote }}
+  DATABASE_POOL_SIZE: {{ .Values.app.backend.databasePoolSize | default "10" | quote }}
+  DATABASE_TIMEOUT: {{ .Values.app.backend.databaseTimeout | default "30" | quote }}
+
+  # Feature flags
+  ENABLE_ANALYTICS: {{ .Values.app.features.enableAnalytics | default "false" | quote }}
+  ENABLE_TELEMETRY: {{ .Values.app.features.enableTelemetry | default "false" | quote }}
+  ENABLE_CACHING: {{ .Values.app.features.enableCaching | default "true" | quote }}
+
+  # Timeout configurations
+  REQUEST_TIMEOUT: {{ .Values.app.timeouts.requestTimeout | default "30" | quote }}
+  CONNECTION_TIMEOUT: {{ .Values.app.timeouts.connectionTimeout | default "10" | quote }}
+
+  # Cache settings
+  CACHE_TTL: {{ .Values.app.cache.ttl | default "3600" | quote }}
+  CACHE_PREFIX: {{ .Values.app.cache.prefix | default "todo_app" | quote }}
+
+  # Rate limiting
+  RATE_LIMIT_DEFAULT: {{ .Values.app.ratelimit.default | default "100" | quote }}
+  RATE_LIMIT_WINDOW: {{ .Values.app.ratelimit.window | default "3600" | quote }}
+
+  # Additional configuration files
+  {{- range $key, $val := .Values.app.additionalConfigs }}
+  {{ $key }}: {{ $val | quote }}
+  {{- end }}

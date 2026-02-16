@@ -1,0 +1,163 @@
+{{- if .Values.frontend.enabled | default true }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "todo-app.fullname" . }}-frontend
+  {{- if .Values.namespace.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "todo-app.frontend-labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.frontend.autoscaling.enabled }}
+    deployment.kubernetes.io/revision: {{ randAlphaNum 8 | quote }}
+    {{- end }}
+    ai/managed: "true"
+    ai/type: "frontend"
+    ai/description: "Frontend application serving the user interface"
+    ai/version: {{ .Chart.AppVersion | quote }}
+    ai/metrics-endpoint: "/metrics"
+    ai/health-endpoint: "/"
+    {{- if .Values.dapr.enabled }}
+    dapr.io/enabled: "true"
+    dapr.io/app-id: {{ include "todo-app.fullname" . }}-frontend
+    dapr.io/app-port: {{ .Values.frontend.service.targetPort | default "3000" | quote }}
+    {{- if .Values.dapr.appProtocol }}
+    dapr.io/app-protocol: {{ .Values.dapr.appProtocol | quote }}
+    {{- end }}
+    {{- if .Values.dapr.logLevel }}
+    dapr.io/log-level: {{ .Values.dapr.logLevel | quote }}
+    {{- end }}
+    {{- if .Values.dapr.enableMetrics }}
+    dapr.io/enable-metrics: {{ .Values.dapr.enableMetrics | quote }}
+    {{- end }}
+    {{- if .Values.dapr.metricsPort }}
+    dapr.io/metrics-port: {{ .Values.dapr.metricsPort | quote }}
+    {{- end }}
+    {{- if .Values.dapr.enableProfiling }}
+    dapr.io/enable-profiling: {{ .Values.dapr.enableProfiling | quote }}
+    {{- end }}
+    {{- if .Values.dapr.config }}
+    dapr.io/config: {{ .Values.dapr.config | quote }}
+    {{- end }}
+    {{- if .Values.dapr.appMaxConcurrency }}
+    dapr.io/app-max-concurrency: {{ .Values.dapr.appMaxConcurrency | quote }}
+    {{- end }}
+    {{- if .Values.dapr.appSsl }}
+    dapr.io/app-ssl: {{ .Values.dapr.appSsl | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.istio.enabled }}
+    sidecar.istio.io/inject: "true"
+    {{- if .Values.istio.controlPlane }}
+    istio.io/rev: {{ .Values.istio.controlPlane | quote }}
+    {{- end }}
+    {{- if .Values.istio.injectionPolicy }}
+    policy: {{ .Values.istio.injectionPolicy | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.monitoring.enabled }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.frontend.service.targetPort | default "3000" | quote }}
+    prometheus.io/path: {{ .Values.monitoring.metricsPath | default "/metrics" | quote }}
+    {{- end }}
+spec:
+  {{- if not .Values.frontend.autoscaling.enabled }}
+  replicas: {{ .Values.frontend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "todo-app.frontend-match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-frontend.yaml") . | sha256sum }}-{{ include (print $.Template.BasePath "/configmap-app.yaml") . | sha256sum }}
+      labels:
+        {{- include "todo-app.frontend-match-labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.hostAliases }}
+      hostAliases:
+        {{- toYaml .Values.global.hostAliases | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "todo-app.fullname" . }}-app-config
+      containers:
+        - name: {{ .Chart.Name }}-frontend
+          securityContext:
+            {{- toYaml .Values.frontend.securityContext | nindent 12 }}
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            {{- if .Values.dapr.enabled }}
+            - name: dapr-http
+              containerPort: {{ .Values.dapr.httpPort | default "3500" }}
+              protocol: TCP
+            - name: dapr-grpc
+              containerPort: {{ .Values.dapr.grpcPort | default "50001" }}
+              protocol: TCP
+            {{- end }}
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: {{ .Values.frontend.env.NEXT_PUBLIC_API_URL | default (printf "http://%s-backend:%d" (include "todo-app.fullname" .) .Values.backend.service.port) | quote }}
+            - name: NEXT_PUBLIC_BETTER_AUTH_URL
+              value: {{ .Values.frontend.env.NEXT_PUBLIC_BETTER_AUTH_URL | default (printf "http://%s-backend:%d/api/auth" (include "todo-app.fullname" .) .Values.backend.service.port) | quote }}
+            - name: NEXT_PUBLIC_APP_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: NEXT_PUBLIC_APP_NAME
+            - name: NEXT_PUBLIC_THEME
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: NEXT_PUBLIC_THEME
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-auth-secret
+                  key: auth-secret
+            {{- range $key, $val := .Values.frontend.envExtra }}
+            - name: {{ $key | quote }}
+              value: {{ $val | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /etc/config/app
+              readOnly: true
+          livenessProbe:
+            {{- toYaml .Values.frontend.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.frontend.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          {{- if .Values.frontend.startupProbe.enabled }}
+          startupProbe:
+            {{- toYaml .Values.frontend.startupProbe.spec | nindent 12 }}
+          {{- end }}
+      {{- with .Values.frontend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

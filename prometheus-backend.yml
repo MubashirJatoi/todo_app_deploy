@@ -1,0 +1,10 @@
+# Prometheus configuration for backend monitoring
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'backend-service'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s

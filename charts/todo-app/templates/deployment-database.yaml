@@ -1,0 +1,192 @@
+{{- if .Values.database.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "todo-app.fullname" . }}-database
+  {{- if .Values.namespace.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "todo-app.database-labels" . | nindent 4 }}
+  annotations:
+    ai/managed: "true"
+    ai/type: "database"
+    ai/description: "PostgreSQL database service for storing application data"
+    ai/version: {{ .Chart.AppVersion | quote }}
+    ai/health-endpoint: "/health"
+    {{- if .Values.dapr.enabled }}
+    dapr.io/enabled: "true"
+    dapr.io/app-id: {{ include "todo-app.fullname" . }}-database
+    dapr.io/app-port: "5432"
+    {{- if .Values.dapr.appProtocol }}
+    dapr.io/app-protocol: {{ .Values.dapr.appProtocol | quote }}
+    {{- end }}
+    {{- if .Values.dapr.logLevel }}
+    dapr.io/log-level: {{ .Values.dapr.logLevel | quote }}
+    {{- end }}
+    {{- if .Values.dapr.enableMetrics }}
+    dapr.io/enable-metrics: {{ .Values.dapr.enableMetrics | quote }}
+    {{- end }}
+    {{- if .Values.dapr.metricsPort }}
+    dapr.io/metrics-port: {{ .Values.dapr.metricsPort | quote }}
+    {{- end }}
+    {{- if .Values.dapr.enableProfiling }}
+    dapr.io/enable-profiling: {{ .Values.dapr.enableProfiling | quote }}
+    {{- end }}
+    {{- if .Values.dapr.config }}
+    dapr.io/config: {{ .Values.dapr.config | quote }}
+    {{- end }}
+    {{- if .Values.dapr.appMaxConcurrency }}
+    dapr.io/app-max-concurrency: {{ .Values.dapr.appMaxConcurrency | quote }}
+    {{- end }}
+    {{- if .Values.dapr.appSsl }}
+    dapr.io/app-ssl: {{ .Values.dapr.appSsl | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.istio.enabled }}
+    sidecar.istio.io/inject: "true"
+    {{- if .Values.istio.controlPlane }}
+    istio.io/rev: {{ .Values.istio.controlPlane | quote }}
+    {{- end }}
+    {{- if .Values.istio.injectionPolicy }}
+    policy: {{ .Values.istio.injectionPolicy | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.monitoring.enabled }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: {{ .Values.monitoring.metricsPath | default "/metrics" | quote }}
+    {{- end }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "todo-app.database-match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "todo-app.database-match-labels" . | nindent 8 }}
+      annotations:
+        ai/managed: "true"
+        ai/type: "database"
+        ai/health-endpoint: "/health"
+        {{- if .Values.dapr.enabled }}
+        dapr.io/enabled: "true"
+        {{- if .Values.dapr.appProtocol }}
+        dapr.io/app-protocol: {{ .Values.dapr.appProtocol | quote }}
+        {{- end }}
+        {{- if .Values.dapr.logLevel }}
+        dapr.io/log-level: {{ .Values.dapr.logLevel | quote }}
+        {{- end }}
+        {{- if .Values.dapr.enableMetrics }}
+        dapr.io/enable-metrics: {{ .Values.dapr.enableMetrics | quote }}
+        {{- end }}
+        {{- if .Values.dapr.metricsPort }}
+        dapr.io/metrics-port: {{ .Values.dapr.metricsPort | quote }}
+        {{- end }}
+        {{- if .Values.dapr.enableProfiling }}
+        dapr.io/enable-profiling: {{ .Values.dapr.enableProfiling | quote }}
+        {{- end }}
+        {{- if .Values.dapr.config }}
+        dapr.io/config: {{ .Values.dapr.config | quote }}
+        {{- end }}
+        {{- if .Values.dapr.appMaxConcurrency }}
+        dapr.io/app-max-concurrency: {{ .Values.dapr.appMaxConcurrency | quote }}
+        {{- end }}
+        {{- if .Values.dapr.appSsl }}
+        dapr.io/app-ssl: {{ .Values.dapr.appSsl | quote }}
+        {{- end }}
+        {{- end }}
+        {{- if .Values.istio.enabled }}
+        sidecar.istio.io/inject: "true"
+        {{- if .Values.istio.controlPlane }}
+        istio.io/rev: {{ .Values.istio.controlPlane | quote }}
+        {{- end }}
+        {{- if .Values.istio.injectionPolicy }}
+        policy: {{ .Values.istio.injectionPolicy | quote }}
+        {{- end }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: postgres
+          securityContext:
+            {{- toYaml .Values.database.securityContext | nindent 12 }}
+          image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+          imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+          ports:
+            - containerPort: 5432
+              name: postgres
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            {{- if .Values.dapr.enabled }}
+            - name: dapr-http
+              containerPort: {{ .Values.dapr.httpPort | default "3500" }}
+              protocol: TCP
+            - name: dapr-grpc
+              containerPort: {{ .Values.dapr.grpcPort | default "50001" }}
+              protocol: TCP
+            {{- end }}
+          env:
+            - name: POSTGRES_DB
+              value: "todo_db"
+            - name: POSTGRES_USER
+              value: "user"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-db-secret
+                  key: postgres-password
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -h
+                - 127.0.0.1
+                - -U
+                - user
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -h
+                - 127.0.0.1
+                - -U
+                - user
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.database.resources | nindent 12 }}
+          {{- if .Values.database.volume.enabled }}
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+              subPath: postgres
+          {{- end }}
+      {{- if .Values.database.volume.enabled }}
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: {{ include "todo-app.fullname" . }}-postgres-pvc
+      {{- end }}
+      {{- with .Values.database.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

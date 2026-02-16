@@ -1,0 +1,47 @@
+{{- if .Values.frontend.enabled | default true }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "todo-app.fullname" . }}-frontend
+  {{- if .Values.namespace.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "todo-app.frontend-labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.frontend.service.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    ai/managed: "true"
+    ai/type: "frontend-service"
+    ai/description: "Frontend service for user interface access"
+    ai/discoverable: "true"
+spec:
+  type: {{ .Values.frontend.service.type }}
+  {{- if eq .Values.frontend.service.type "LoadBalancer" }}
+  {{- with .Values.frontend.service.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with .Values.frontend.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- end }}
+  {{- if eq .Values.frontend.service.type "ClusterIP" }}
+  {{- with .Values.frontend.service.clusterIP }}
+  clusterIP: {{ . }}
+  {{- end }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.frontend.service.type "NodePort") .Values.frontend.service.nodePort }}
+      nodePort: {{ .Values.frontend.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "todo-app.frontend-match-labels" . | nindent 4 }}
+{{- end }}

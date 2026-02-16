@@ -1,0 +1,142 @@
+version: '3.8'
+
+services:
+  # Backend service with sidecar
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@db:5432/todo_db}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-default_secret_key}
+      - HOST_URL=${HOST_URL:-http://localhost:8000}
+      - PORT=8000
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+    # Labels for service discovery
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`localhost`) && PathPrefix(`/api`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+
+  # Sidecar for backend - logging
+  backend-logging-sidecar:
+    image: busybox
+    command: sh -c 'tail -f /var/log/backend.log'
+    volumes:
+      - backend-logs:/var/log
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  # Sidecar for backend - monitoring
+  backend-monitoring-sidecar:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus-backend.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  # Frontend service with sidecar
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`) && PathPrefix(`/`)"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+
+  # Sidecar for frontend - proxy/cache
+  frontend-proxy-sidecar:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx-frontend.conf:/etc/nginx/nginx.conf
+    networks:
+      - app-network
+    depends_on:
+      - frontend
+
+  # Database service
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_DB: todo_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Sidecar for database - backup
+  db-backup-sidecar:
+    image: busybox
+    command: sh -c 'while true; do sleep 3600; echo "Performing DB backup..."; done'
+    volumes:
+      - postgres_data:/data:ro
+    networks:
+      - app-network
+    depends_on:
+      - db
+
+  # Additional infrastructure services
+  traefik:
+    image: traefik:v2.9
+    command:
+      - '--api.insecure=true'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.web.address=:80'
+    ports:
+      - "80:80"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  backend-logs:
+  prometheus-data:
+
+networks:
+  app-network:
+    driver: bridge

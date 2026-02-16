@@ -1,0 +1,142 @@
+# Production environment values
+# Production-specific configurations for the Todo application with Dapr
+
+# Global configurations
+global:
+  imagePullPolicy: "Always"
+
+# Frontend configuration
+frontend:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: "750m"
+      memory: "768Mi"
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: "LoadBalancer"  # Production typically uses LoadBalancer
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Backend configuration
+backend:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: 300m
+      memory: 384Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+# Database configuration
+database:
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  volume:
+    size: "10Gi"  # Larger storage for production
+
+# Dapr configuration for production
+dapr:
+  enabled: true
+  logLevel: "warn"  # Less verbose in production
+  enableMetrics: "true"
+  # Production-specific Dapr settings
+  appProtocol: "http"
+  enableProfiling: "false"  # Disable profiling in production
+
+  # Production Dapr components configuration
+  stateStore:
+    enabled: true
+    redisHost: "redis-master.production.svc.cluster.local:6379"  # Production Redis endpoint
+    secretName: "redis-secret-production"
+    secretKey: "password"
+
+  pubsub:
+    enabled: true
+    redisHost: "redis-master.production.svc.cluster.local:6379"  # Production Redis endpoint
+    secretName: "redis-secret-production"
+    secretKey: "password"
+
+# Redis configuration for production
+redis:
+  enabled: true
+  architecture: replication  # Production uses replication for HA
+  auth:
+    enabled: true
+    password: "secure-production-password-here"
+  master:
+    persistence:
+      enabled: true
+      size: "8Gi"
+      storageClass: "fast-ssd"  # Production-grade storage
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+      requests:
+        cpu: 250m
+        memory: 256Mi
+  replica:
+    replicaCount: 2  # Multiple replicas for HA
+    resources:
+      limits:
+        cpu: "500m"
+        memory: "512Mi"
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+# Application configuration
+app:
+  environment: "production"
+  logLevel: "info"
+  debugMode: false
+
+  backend:
+    host: "0.0.0.0"
+    port: 7860
+    databasePoolSize: 20  # Larger pool for production
+    databaseTimeout: 60
+
+  features:
+    enableAnalytics: true
+    enableTelemetry: true
+    enableCaching: true
+
+  timeouts:
+    requestTimeout: 60
+    connectionTimeout: 30
+
+  cache:
+    ttl: 7200  # 2 hours for production
+    prefix: "prod_todo_app"
+
+  ratelimit:
+    default: 200
+    window: 3600
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "15s"  # More frequent monitoring in production
+    scrapeTimeout: "10s"

@@ -1,0 +1,46 @@
+{{- if .Values.monitoring.enabled }}
+{{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "todo-app.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "todo-app.frontend-labels" . | nindent 4 }}
+    {{- if .Values.monitoring.serviceMonitor.additionalLabels }}
+    {{- toYaml .Values.monitoring.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "todo-app.frontend-match-labels" . | nindent 6 }}
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+    path: {{ .Values.monitoring.serviceMonitor.path }}
+{{- end }}
+
+---
+{{- if .Capabilities.APIVersions.Has "monitoring.coreos.com/v1" }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "todo-app.fullname" . }}-backend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "todo-app.backend-labels" . | nindent 4 }}
+    {{- if .Values.monitoring.serviceMonitor.additionalLabels }}
+    {{- toYaml .Values.monitoring.serviceMonitor.additionalLabels | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "todo-app.backend-match-labels" . | nindent 6 }}
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    scrapeTimeout: {{ .Values.monitoring.serviceMonitor.scrapeTimeout }}
+    path: {{ .Values.monitoring.serviceMonitor.path }}
+{{- end }}
+{{- end }}

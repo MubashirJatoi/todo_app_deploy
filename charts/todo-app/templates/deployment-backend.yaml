@@ -1,0 +1,191 @@
+{{- if .Values.backend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "todo-app.fullname" . }}-backend
+  {{- if .Values.namespace.name }}
+  namespace: {{ .Values.namespace.name }}
+  {{- else }}
+  namespace: {{ .Release.Namespace }}
+  {{- end }}
+  labels:
+    {{- include "todo-app.backend-labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.backend.autoscaling.enabled }}
+    deployment.kubernetes.io/revision: {{ randAlphaNum 8 | quote }}
+    {{- end }}
+    ai/managed: "true"
+    ai/type: "backend"
+    ai/description: "Backend API service handling business logic"
+    ai/version: {{ .Chart.AppVersion | quote }}
+    ai/metrics-endpoint: "/metrics"
+    ai/health-endpoint: "/health"
+    {{- if .Values.dapr.enabled }}
+    dapr.io/enabled: "true"
+    dapr.io/app-id: {{ include "todo-app.fullname" . }}-backend
+    dapr.io/app-port: {{ .Values.backend.service.targetPort | default "7860" | quote }}
+    {{- if .Values.dapr.appProtocol }}
+    dapr.io/app-protocol: {{ .Values.dapr.appProtocol | quote }}
+    {{- end }}
+    {{- if .Values.dapr.logLevel }}
+    dapr.io/log-level: {{ .Values.dapr.logLevel | quote }}
+    {{- end }}
+    {{- if .Values.dapr.enableMetrics }}
+    dapr.io/enable-metrics: {{ .Values.dapr.enableMetrics | quote }}
+    {{- end }}
+    {{- if .Values.dapr.metricsPort }}
+    dapr.io/metrics-port: {{ .Values.dapr.metricsPort | quote }}
+    {{- end }}
+    {{- if .Values.dapr.enableProfiling }}
+    dapr.io/enable-profiling: {{ .Values.dapr.enableProfiling | quote }}
+    {{- end }}
+    {{- if .Values.dapr.config }}
+    dapr.io/config: {{ .Values.dapr.config | quote }}
+    {{- end }}
+    {{- if .Values.dapr.appMaxConcurrency }}
+    dapr.io/app-max-concurrency: {{ .Values.dapr.appMaxConcurrency | quote }}
+    {{- end }}
+    {{- if .Values.dapr.appSsl }}
+    dapr.io/app-ssl: {{ .Values.dapr.appSsl | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.istio.enabled }}
+    sidecar.istio.io/inject: "true"
+    {{- if .Values.istio.controlPlane }}
+    istio.io/rev: {{ .Values.istio.controlPlane | quote }}
+    {{- end }}
+    {{- if .Values.istio.injectionPolicy }}
+    policy: {{ .Values.istio.injectionPolicy | quote }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.monitoring.enabled }}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.backend.service.targetPort | default "7860" | quote }}
+    prometheus.io/path: {{ .Values.monitoring.metricsPath | default "/metrics" | quote }}
+    {{- end }}
+spec:
+  {{- if not .Values.backend.autoscaling.enabled }}
+  replicas: {{ .Values.backend.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "todo-app.backend-match-labels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-backend.yaml") . | sha256sum }}-{{ include (print $.Template.BasePath "/configmap-app.yaml") . | sha256sum }}
+      labels:
+        {{- include "todo-app.backend-match-labels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.hostAliases }}
+      hostAliases:
+        {{- toYaml .Values.global.hostAliases | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "todo-app.fullname" . }}-app-config
+      containers:
+        - name: {{ .Chart.Name }}-backend
+          securityContext:
+            {{- toYaml .Values.backend.securityContext | nindent 12 }}
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 7860
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+            {{- if .Values.dapr.enabled }}
+            - name: dapr-http
+              containerPort: {{ .Values.dapr.httpPort | default "3500" }}
+              protocol: TCP
+            - name: dapr-grpc
+              containerPort: {{ .Values.dapr.grpcPort | default "50001" }}
+              protocol: TCP
+            {{- end }}
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-db-secret
+                  key: database-url
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-auth-secret
+                  key: auth-secret
+            - name: COHERE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-ai-secret
+                  key: cohere-api-key
+            - name: PORT
+              value: {{ .Values.backend.service.targetPort | default 7860 | quote }}
+            - name: API_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: API_HOST
+            - name: DATABASE_POOL_SIZE
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: DATABASE_POOL_SIZE
+            - name: DATABASE_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: DATABASE_TIMEOUT
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: LOG_LEVEL
+            - name: REQUEST_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: REQUEST_TIMEOUT
+            - name: CONNECTION_TIMEOUT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "todo-app.fullname" . }}-app-config
+                  key: CONNECTION_TIMEOUT
+            {{- range $key, $val := .Values.backend.envExtra }}
+            - name: {{ $key | quote }}
+              value: {{ $val | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: app-config
+              mountPath: /etc/config/app
+              readOnly: true
+          livenessProbe:
+            {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          {{- if .Values.backend.startupProbe.enabled }}
+          startupProbe:
+            {{- toYaml .Values.backend.startupProbe.spec | nindent 12 }}
+          {{- end }}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

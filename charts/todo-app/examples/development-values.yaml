@@ -1,0 +1,140 @@
+# Development environment values
+# Development-specific configurations for the Todo application with Dapr
+
+# Global configurations
+global:
+  imagePullPolicy: "Always"
+
+# Frontend configuration
+frontend:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  service:
+    type: "NodePort"  # Easier access for development
+  autoscaling:
+    enabled: false  # Disable autoscaling in dev
+
+# Backend configuration
+backend:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: false  # Disable autoscaling in dev
+
+# Database configuration
+database:
+  resources:
+    limits:
+      cpu: "300m"
+      memory: "256Mi"
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  volume:
+    size: "1Gi"  # Smaller storage for development
+
+# Dapr configuration for development
+dapr:
+  enabled: true
+  logLevel: "debug"  # More verbose in development
+  enableMetrics: "true"
+  # Development-specific Dapr settings
+  appProtocol: "http"
+  enableProfiling: "true"  # Enable profiling in development
+
+  # Development Dapr components configuration
+  stateStore:
+    enabled: true
+    redisHost: "redis-master.default.svc.cluster.local:6379"  # Dev Redis endpoint
+    secretName: "redis-secret-dev"
+    secretKey: "password"
+
+  pubsub:
+    enabled: true
+    redisHost: "redis-master.default.svc.cluster.local:6379"  # Dev Redis endpoint
+    secretName: "redis-secret-dev"
+    secretKey: "password"
+
+# Redis configuration for development
+redis:
+  enabled: true
+  architecture: standalone  # Simpler setup for dev
+  auth:
+    enabled: true
+    password: "dev-password-here"
+  master:
+    persistence:
+      enabled: false  # No persistence in dev
+    resources:
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# Application configuration
+app:
+  environment: "development"
+  logLevel: "debug"
+  debugMode: true
+
+  backend:
+    host: "0.0.0.0"
+    port: 7860
+    databasePoolSize: 5  # Smaller pool for dev
+    databaseTimeout: 30
+
+  features:
+    enableAnalytics: false
+    enableTelemetry: false
+    enableCaching: true
+
+  timeouts:
+    requestTimeout: 30
+    connectionTimeout: 10
+
+  cache:
+    ttl: 300  # 5 minutes for development
+    prefix: "dev_todo_app"
+
+  ratelimit:
+    default: 100
+    window: 3600
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: false  # Disable service monitor in dev
+    interval: "30s"
+    scrapeTimeout: "10s"
+
+# Development-specific configurations
+minikube:
+  enabled: true
+  resourceLimits:
+    frontend:
+      cpu: 200m
+      memory: 128Mi
+    backend:
+      cpu: 300m
+      memory: 256Mi
+    database:
+      cpu: 200m
+      memory: 128Mi
+  databaseVolume:
+    size: 512Mi
+  serviceType: "NodePort"

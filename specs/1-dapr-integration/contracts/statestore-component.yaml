@@ -1,0 +1,51 @@
+# Dapr State Store Component - Redis
+# This is a CONTRACT template showing the exact YAML structure required
+# Actual deployment file will be in helm/todo-chart/templates/dapr-components/statestore.yaml
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+  namespace: default  # Will be: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: todo-app
+    app.kubernetes.io/instance: todo-app
+    app.kubernetes.io/component: dapr-statestore
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+  # Redis Connection
+  - name: redisHost
+    value: "redis-master.default.svc.cluster.local:6379"  # Will be: {{ .Values.dapr.stateStore.redisHost }}
+
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-secret  # Will be: {{ .Values.dapr.stateStore.secretName }}
+      key: password       # Will be: {{ .Values.dapr.stateStore.secretKey }}
+
+  # Connection Settings
+  - name: enableTLS
+    value: "false"
+
+  - name: maxRetries
+    value: "3"
+
+  - name: maxRetryBackoff
+    value: "2s"
+
+  # Scoping: Only backend-app can access this state store
+  scopes:
+  - backend-app  # Will be: {{ .Values.backend.dapr.appId }}
+
+---
+# USAGE EXAMPLE:
+# Save state:
+#   POST http://localhost:3500/v1.0/state/statestore
+#   Body: [{"key": "chat:session:123", "value": {...}, "metadata": {"ttlInSeconds": "3600"}}]
+#
+# Get state:
+#   GET http://localhost:3500/v1.0/state/statestore/chat:session:123
+#
+# Delete state:
+#   DELETE http://localhost:3500/v1.0/state/statestore/chat:session:123

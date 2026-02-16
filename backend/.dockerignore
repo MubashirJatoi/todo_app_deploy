@@ -1,0 +1,123 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*$py.class
+
+# Virtual environments
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Dependencies
+pip-log.txt
+pip-delete-this-directory.txt
+requirements-log.txt
+
+# Testing
+.pytest_cache/
+.pytest_cache/*
+.nosetests.cfg
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.log
+nosetests.xml
+unit_test.log
+test.log
+test_*.log
+.hypothesis/
+
+# Distribution artifacts
+*.egg
+*.egg-info/
+dist/
+build/
+develop-eggs/
+.installed.cfg
+*.egg-link
+*.egg-info/
+*.eggs/
+.eggs/
+
+# Documentation
+docs/_build/
+
+# Git
+.git
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+*.tmproj
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+logs/
+logs/*.log
+
+# Environment variables
+.env
+.env.local
+.env.dev
+.env.prod
+*.env
+.env*
+!.env.example
+
+# Coverage
+.coverage
+.coverage.*
+.cache
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Security
+secrets/
+*.key
+*.pem
+*.cer
+*.crt
+*.cert
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*~
+
+# Package manager lock files
+package-lock.json
+yarn.lock
+*.lock
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Archives
+*.zip
+*.tar.gz
+*.rar
